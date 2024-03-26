@@ -50,7 +50,7 @@ class Chat:
         Runs the chat interface allowing for user input and displays responses from the selected model.
         """
         # Input box for user's questions
-        prompt = self.st.chat_input(f"Ask '{self.selected_model}' a question ...")
+        prompt = self.st.chat_input(f"Ask {self.selected_model[1]} a question ...")
         # Process and display the conversation
         self.chat(prompt)
 
@@ -95,7 +95,7 @@ class Chat:
         # Sidebar selection for model
         self.st.sidebar.subheader("Models")
         llm_name = self.st.sidebar.selectbox(
-            "Select Model (available {len(model_names)})", model_names
+            f"Select a model ({len(model_names)} available)", model_names
         )
 
         # Check if the selected model is local or online and extract its details accordingly
