@@ -1,7 +1,6 @@
 import os
 import json
 import datetime
-from uuid import uuid4
 
 import streamlit as st
 from LLMConnector import LLMConnector
@@ -64,13 +63,13 @@ class Chat:
         )
         if new_conversation:
             # Generate unique conversation ID
-            self.st.session_state["conversation_id"] = str(uuid4())
+            self.st.session_state["conversation_id"] = str(datetime.datetime.now())
             # Reset chat history for the new conversation
             self.st.session_state[
                 "chat_history_" + self.st.session_state["conversation_id"]
             ] = []
             # Prepare file name for saving the conversation
-            file_name = f"{self.st.session_state['conversation_id']}_{self.selected_model[1]}.json"
+            file_name = f"{self.st.session_state['conversation_id']}.json"
             # Initialize the conversation file with empty content
             json.dump([], open(os.path.join(self.OUTPUT_DIR, file_name), "w"))
             # Rerun the app to reflect changes
@@ -164,20 +163,6 @@ class Chat:
                 "chat_history_" + self.st.session_state["conversation_id"]
             ] = conversation_data
 
-            # Iterate over each message in the conversation data and display it appropriately
-            for message in conversation_data:
-                role = message["role"]
-                # Display user messages differently from assistant messages for clarity
-                if role == "user":
-                    with self.st.chat_message("user"):
-                        question = message["content"]
-                        # Safe markdown is used here to potentially allow formatting within messages
-                        self.st.markdown(f"{question}", unsafe_allow_html=True)
-                elif role == "assistant":
-                    with self.st.chat_message("assistant"):
-                        # Assistant messages are also displayed using markdown for consistency and formatting
-                        self.st.markdown(message["content"], unsafe_allow_html=True)
-
     def chat(self, prompt):
         """
         Handles sending a prompt to the selected language model and displaying the response in the chat interface.
@@ -196,7 +181,7 @@ class Chat:
             )
         else:
             # If no conversation is active, generate a new ID and initialize chat history
-            self.st.session_state["conversation_id"] = str(uuid4())
+            self.st.session_state["conversation_id"] = str(datetime.datetime.now())
             chat_history_key = (
                 f"chat_history_{self.st.session_state['conversation_id']}"
             )
@@ -254,18 +239,12 @@ class Chat:
         conversation_id = self.st.session_state["conversation_id"]
         conversation_key = f"chat_history_{conversation_id}"
         conversation_chat = self.st.session_state[conversation_key]
-        filename = f"{conversation_id}_{self.selected_model[1]}.json"
+        filename = f"{conversation_id}.json"
 
         # Check if there's any conversation to save
         if conversation_chat:
             # Prepare the file path for saving the conversation
             conversation_file = os.path.join(self.OUTPUT_DIR, filename)
-
-            # If the conversation file exists, load its content first to append new chat
-            if os.path.exists(conversation_file):
-                with open(conversation_file, "r") as f:
-                    existing_conversation_data = json.load(f)
-                conversation_chat.extend(existing_conversation_data)
 
             # Save the updated conversation back to the file
             with open(conversation_file, "w") as f:
