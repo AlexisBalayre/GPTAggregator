@@ -20,11 +20,11 @@ class Chat:
         Args:
             output_dir (str): The directory to save conversation history files.
         """
-        self.llmConnector = LLMConnector()  # Connect to LLM API
+        self.st = st  # Streamlit instance for UI rendering
+        self.llmConnector = LLMConnector(st=self.st)  # Connect to LLM API
         self.LOCAL_MODELS = self.llmConnector.get_local_models()  # Load local models
         self.ONLINE_MODELS = self.llmConnector.get_online_models()  # Load online models
         self.OUTPUT_DIR = output_dir  # Directory for saving conversations
-        self.st = st  # Streamlit instance for UI rendering
         self.__configure_chat()  # Configure the chat UI
 
     def __configure_chat(self):
@@ -82,12 +82,16 @@ class Chat:
         Returns:
             A list containing the selected model's provider and name.
         """
+        # Health check for the LLM providers
+        # health_check = self.llmConnector.health_check()
+
         # Compile lists of available models
         local_models_names = [
-            model["name"] for model in self.LOCAL_MODELS
+            model["name"] for model in self.LOCAL_MODELS  # if health_check["ollama"]
         ]  # Local models
         online_models_names = [
-            model["name"] for model in self.ONLINE_MODELS
+            model["name"]
+            for model in self.ONLINE_MODELS  # if health_check[model["provider"]]
         ]  # Online models
         model_names = local_models_names + online_models_names  # Combine all models
 
