@@ -2,6 +2,8 @@
 
 GPTAggregator is a Python-based application that provides a unified interface to interact with various large language models (LLMs) through their respective APIs. The project is designed to be user-friendly and easily extensible, making it a powerful tool for developers, researchers, and anyone interested in leveraging the capabilities of large language models.
 
+<img width="1512" alt="Screenshot 2024-03-31 at 15 38 09" src="https://github.com/AlexisBalayre/GPTAggregator/assets/60859013/f15e32a5-e651-4592-a182-034353a2e36f">
+
 ## Features
 
 1. **Supported LLM Providers**:
@@ -35,7 +37,7 @@ The goal of this project is to have all LLM models in the same place, which enab
 1. Clone the repository:
 
    ```bash
-   git clone https://github.com/your-username/GPTAggregator.git
+   git clone https://github.com/AlexisBalayre/GPTAggregator.git
    cd GPTAggregator
    ```
 
