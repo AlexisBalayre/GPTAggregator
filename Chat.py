@@ -13,7 +13,7 @@ class Chat:
     and managing input/output of chat messages.
     """
 
-    def __init__(self, output_dir="llm_conversations"):
+    def __init__(self, output_dir="llm_conversations", health_check_enabled=False):
         """
         Initializes the Chat class, setting up model connections and configuring the chat interface.
 
@@ -25,6 +25,7 @@ class Chat:
         self.LOCAL_MODELS = self.llmConnector.get_local_models()  # Load local models
         self.ONLINE_MODELS = self.llmConnector.get_online_models()  # Load online models
         self.OUTPUT_DIR = output_dir  # Directory for saving conversations
+        self.health_check_enabled = health_check_enabled  # Enable health check
         self.__configure_chat()  # Configure the chat UI
 
     def __configure_chat(self):
@@ -43,6 +44,8 @@ class Chat:
         self.display_conversation_history()
         # Provide option for new conversation
         self.new_conversation()
+        # Set chat parameters
+        self.params = self.chat_params()  # Chat parameters
 
     def run(self):
         """
@@ -82,18 +85,28 @@ class Chat:
         Returns:
             A list containing the selected model's provider and name.
         """
-        # Health check for the LLM providers
-        # health_check = self.llmConnector.health_check()
+        # Check the health status of the LLM providers if enabled
+        if self.health_check_enabled:
+            health_check = self.llmConnector.health_check()  # Check health status
+            local_models_names = [
+                model["name"] for model in self.LOCAL_MODELS if health_check["ollama"]
+            ]  # Local models
+            online_models_names = [
+                model["name"]
+                for model in self.ONLINE_MODELS
+                if health_check[model["provider"]]
+            ]  # Online models
+        else:
+            # Compile lists of available models
+            local_models_names = [
+                model["name"] for model in self.LOCAL_MODELS
+            ]  # Local models
+            online_models_names = [
+                model["name"] for model in self.ONLINE_MODELS
+            ]  # Online models
 
-        # Compile lists of available models
-        local_models_names = [
-            model["name"] for model in self.LOCAL_MODELS  # if health_check["ollama"]
-        ]  # Local models
-        online_models_names = [
-            model["name"]
-            for model in self.ONLINE_MODELS  # if health_check[model["provider"]]
-        ]  # Online models
-        model_names = local_models_names + online_models_names  # Combine all models
+        # Combine all models
+        model_names = local_models_names + online_models_names
 
         # Sidebar selection for model
         self.st.sidebar.subheader("Models")
@@ -121,7 +134,7 @@ class Chat:
                 llm_name = llm_details["modelName"]
 
             # Display model details for the user's reference
-            with self.st.expander("LLM Details"):
+            with self.st.expander("Model Details"):
                 self.st.write(llm_details)
 
             return [llm_provider, llm_name]
@@ -139,26 +152,44 @@ class Chat:
         # List all JSON files in the output directory which are considered as conversation history files
         conversation_files = [f for f in os.listdir(OUTPUT_DIR) if f.endswith(".json")]
 
+        # Sort the conversation files by modification time in descending order
+        conversation_files = sorted(
+            conversation_files,
+            key=lambda x: os.path.getmtime(os.path.join(OUTPUT_DIR, x)),
+            reverse=True,
+        )
+
         # Insert an option at the start of the list for UI purposes, possibly to serve as a 'select' prompt
         conversation_files.insert(0, "")
+
+        def format_id(id):
+            date = id.split(".")[0]
+            return f"{date}"
 
         # Add a section in the sidebar for displaying conversation history
         self.st.sidebar.subheader("Conversation History")
         # Allow the user to select a conversation history file from a dropdown list in the sidebar
         selected_conversation = self.st.sidebar.selectbox(
-            "Select a conversation", conversation_files, index=0
+            "Select a conversation", conversation_files, index=0, format_func=format_id
         )
 
         # Check if a conversation file was selected (not the blank option inserted earlier)
         if selected_conversation:
             # Construct the full path to the selected conversation file
             conversation_file = os.path.join(OUTPUT_DIR, selected_conversation)
+
+            # Display the last modified time of the selected conversation file
+            last_modified = datetime.datetime.fromtimestamp(
+                os.path.getmtime(conversation_file)
+            ).strftime("%Y-%m-%d %H:%M:%S")
+            self.st.sidebar.write(f"Last update: {last_modified}")
+
             # Open and load the conversation JSON data
             with open(conversation_file, "r") as f:
                 conversation_data = json.load(f)
 
             # Extract the conversation ID from the selected filename for state tracking
-            self.st.session_state["conversation_id"] = selected_conversation.split("_")[
+            self.st.session_state["conversation_id"] = selected_conversation.split(".")[
                 0
             ]
 
@@ -166,6 +197,97 @@ class Chat:
             self.st.session_state[
                 "chat_history_" + self.st.session_state["conversation_id"]
             ] = conversation_data
+
+            self.st.session_state["chat_params"] = {
+                "history_length": 3,
+                "similarity_threshold": 0.5,
+                "max_tokens": 2400,
+                "system_prompt": "",
+                "conversation_language": "English",
+            }
+
+            # Load the system prompt from the conversation history
+            for message in conversation_data:
+                if message["role"] == "system":
+                    system_prompt = message["content"]
+                    self.st.session_state["chat_params"] = {
+                        "history_length": 3,
+                        "similarity_threshold": 0.5,
+                        "max_tokens": 2400,
+                        "system_prompt": system_prompt,
+                        "conversation_language": "English",
+                    }
+
+    def chat_params(self):
+        """
+        Displays chat parameters in the sidebar for the user to adjust the language model's behavior.
+
+        Returns:
+            A dictionary containing the chat parameters set by the user.
+        """
+        self.st.sidebar.subheader("Chat Parameters")
+
+        # Load the chat parameters from the session state if available
+        if "chat_params" in self.st.session_state:
+            chat_params = self.st.session_state["chat_params"]
+        else:
+            # Set default chat parameters
+            chat_params = {
+                "history_length": 3,
+                "similarity_threshold": 0.5,
+                "max_tokens": 2400,
+                "system_prompt": "",
+                "conversation_language": "English",
+            }
+
+        # System prompt
+        system_prompt = self.st.sidebar.text_area(
+            key="system_prompt",
+            label="System Prompt",
+            value=chat_params["system_prompt"],
+        )
+
+        # Conversation Language
+        if chat_params["conversation_language"] == "English":
+            index = 0
+        elif chat_params["conversation_language"] == "French":
+            index = 1
+        else:
+            index = 2
+        conversation_language = self.st.sidebar.selectbox(
+            key="conversation_language",
+            label="Enable Similarity Check",
+            options=["English", "French", "None"],
+            index=index,
+        )
+
+        # Similarity threshold
+        similarity_threshold = self.st.sidebar.number_input(
+            key="similarity_threshold",
+            label="Similarity Threshold",
+            value=chat_params["similarity_threshold"],
+        )
+
+        # History length
+        history_length = self.st.sidebar.number_input(
+            key="history_length",
+            label="Number of Messages in History",
+            value=chat_params["history_length"],
+        )
+
+        # Max tokens output
+        max_tokens = self.st.sidebar.number_input(
+            key="max_tokens", label="Max Tokens Output", value=chat_params["max_tokens"]
+        )
+
+        # return chat parameters
+        return {
+            "history_length": history_length,
+            "similarity_threshold": similarity_threshold,
+            "max_tokens": max_tokens,
+            "system_prompt": system_prompt,
+            "conversation_language": conversation_language,
+        }
 
     def chat(self, prompt):
         """
@@ -206,27 +328,56 @@ class Chat:
 
         # Check if there is a new prompt from the user
         if prompt:
-            # Add the new prompt to the chat history
-            self.st.session_state[chat_history_key].append(
-                {"content": prompt, "role": "user"}
-            )
             # Display the prompt in the chat UI
             with self.st.chat_message("user"):
                 self.st.write(prompt)
+
             # Prepare the messages for the language model by collecting all messages from the chat history
             messages = [
                 dict(content=message["content"], role=message["role"])
                 for message in self.st.session_state[chat_history_key]
             ]
+
             # Fetch the response from the language model using the connector
             with self.st.chat_message("assistant"):
                 chat_box = self.st.empty()  # Placeholder for the model's response
-                # Use the LLM connector to stream the model's response based on the chat history
+                params = self.params
+                # Use the LLM connector to stream the model's response based on the chat history``
                 response_message = chat_box.write_stream(
                     self.llmConnector.llm_stream(
-                        self.selected_model[0], self.selected_model[1], messages
+                        provider=self.selected_model[0],
+                        model_name=self.selected_model[1],
+                        messages_history=messages,
+                        user_prompt=prompt,
+                        language=params["conversation_language"],
+                        history_length=params["history_length"],
+                        similarity_threshold=params["similarity_threshold"],
+                        max_tokens=params["max_tokens"],
+                        system_prompt=params["system_prompt"],
                     )
                 )
+
+            # Modify or add a system prompt to chat history
+            if params["system_prompt"]:
+                # Check if a system prompt is already present in the chat history
+                system_prompt_exists = any(
+                    message["role"] == "system" for message in messages
+                )
+                # If a system prompt is not present, add it to the chat history
+                if not system_prompt_exists:
+                    self.st.session_state[chat_history_key].append(
+                        {"content": params["system_prompt"], "role": "system"}
+                    )
+                # If a system prompt is present, update it in the chat history
+                else:
+                    for message in messages:
+                        if message["role"] == "system":
+                            message["content"] = params["system_prompt"]
+
+            # Add the new prompt to the chat history
+            self.st.session_state[chat_history_key].append(
+                {"content": prompt, "role": "user"}
+            )
             # Append the model's response to the chat history
             self.st.session_state[chat_history_key].append(
                 {"content": f"{response_message}", "role": "assistant"}
