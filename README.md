@@ -1,6 +1,6 @@
 # GPTAggregator
 
-GPTAggregator is a Python-based application that provides a unified interface to interact with various large language models (LLMs) through their respective APIs. The project is designed to be user-friendly and easily extensible, making it a powerful tool for developers, researchers, and anyone interested in leveraging the capabilities of large language models.
+GPTAggregator is a Python-based application that provides a unified interface for interacting with various large language models (LLMs) via their respective APIs. The project is designed to be user-friendly and easily extensible, making it a powerful tool for developers, researchers and anyone interested in exploiting the capabilities of large language models. GPTAggregator makes it possible to switch seamlessly from one model to another within the same conversation, centralise conversation storage, automatically optimise messages, and much more.
 
 <img width="1512" alt="Screenshot 2024-03-31 at 15 38 09" src="https://github.com/AlexisBalayre/GPTAggregator/assets/60859013/f15e32a5-e651-4592-a182-034353a2e36f">
 
@@ -8,29 +8,16 @@ GPTAggregator is a Python-based application that provides a unified interface to
 
 1. **Supported LLM Providers**:
 
-   - Ollama (local models)
-   - OpenAI
-   - Anthropic
-   - MistralAI
+   - [Ollama](https://ollama.com/library) (local models)
+   - [OpenAI](https://platform.openai.com/docs/models/overview)
+   - [Anthropic](https://docs.anthropic.com/claude/docs/intro-to-claude)
+   - [MistralAI](https://docs.mistral.ai/platform/endpoints/)
 
-2. **Unified API**: The project provides a consistent API to interact with these LLM providers, simplifying the process of switching between them.
+2. **Seamless Model Switching**: Switch between different LLMs mid-conversation, leveraging the strengths of each to enhance the chat experience.
 
-3. **Health Check**: The `health_check()` method allows you to verify the availability of the supported LLM providers.
+3. **Secure Conversation Storage**: Store and retrieve conversations for later reference or analysis. Conversations stayed on your local machine and are not shared with any third parties (only with local models).
 
-4. **Local and Online Models**: The project supports both local Ollama models and online models from the supported providers.
-
-5. **Message History Filtering**: The `filter_messages()` method filters the message history based on semantic similarity and relevance to the current prompts, optimizing the input for the LLM.
-
-6. **Streaming Responses**: The `llm_stream()` method streams responses from the specified LLM in real-time, allowing for interactive conversations.
-
-7. **Conversation History**: The `Chat` class provides functionality to save, load, and display the conversation history, allowing users to review past interactions.
-
-The goal of this project is to have all LLM models in the same place, which enables new features such as:
-
-- Switching between models within the same conversation
-- Storing all conversations in a centralised location
-- Automatic prompt optimization (Prompt engineering)
-- and more!
+4. **Automatic Prompt Optimization**: Utilize advanced prompt engineering techniques to improve model responses and user interaction over time.
 
 ## Installation
 
@@ -51,7 +38,7 @@ The goal of this project is to have all LLM models in the same place, which enab
 3. Install the required packages:
 
    ```bash
-   pip install -r requirements.txt
+   python -m pip install -r requirements.txt
    ```
 
 ## Configuration
@@ -73,6 +60,19 @@ Run the streamlit app:
 ```bash
 streamlit run app.py
 ```
+
+After launching the application, use the web interface provided by Streamlit to interact with the models. You can select different models from the sidebar, view and manage past conversations, and configure chat parameters to tailor the interaction to your preferences.
+
+## Project Structure
+
+The project is structured as follows:
+
+- `app.py`: The main entry point to start the application.
+- `Chat.py`: Defines the Chat class responsible for managing chat interactions.
+- `LLMConnector.py`: Handles connections to various LLM APIs.
+- `models.json`: Configuration file for available models.
+- `requirements.txt`: Lists all Python library dependencies.
+- `llm_conversations/`: Default directory where conversation histories are stored.
 
 ## Contribution
 
