@@ -194,11 +194,12 @@ class LLMConnector:
         # Convert the message history to a list of dictionaries
         history = [
             {"role": msg.get("role", ""), "content": msg.get("content", "")}
-            for msg in messages_history if msg.get("role", "") in ["user", "assistant"]
+            for msg in messages_history
+            if msg.get("role", "") in ["user", "assistant"]
         ]
 
-        # Deque to store the filtered message history 
-        filtered_history = deque(maxlen=max_history_length*2)
+        # Deque to store the filtered message history
+        filtered_history = deque(maxlen=max_history_length * 2)
 
         # Select the appropriate SpaCy NLP model based on the language
         self.nlp = self.nlp_en if language.lower() == "english" else self.nlp_fr
@@ -222,8 +223,8 @@ class LLMConnector:
                     filtered_history.appendleft(msg)
         else:
             # If the language is not English, simply append the last few messages to the filtered history
-            filtered_history.extend(history[-max_history_length:])
-        
+            filtered_history.extend(history[-(max_history_length * 2) :])
+
         return list(filtered_history)
 
     def llm_stream(
