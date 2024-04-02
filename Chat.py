@@ -199,11 +199,11 @@ class Chat:
             ] = conversation_data
 
             self.st.session_state["chat_params"] = {
-                "history_length": 3,
+                "history_length": 5,
                 "similarity_threshold": 0.5,
                 "max_tokens": 2400,
                 "system_prompt": "",
-                "conversation_language": "English",
+                "conversation_language": "None",
             }
 
             # Load the system prompt from the conversation history
@@ -211,11 +211,11 @@ class Chat:
                 if message["role"] == "system":
                     system_prompt = message["content"]
                     self.st.session_state["chat_params"] = {
-                        "history_length": 3,
+                        "history_length": 5,
                         "similarity_threshold": 0.5,
                         "max_tokens": 2400,
                         "system_prompt": system_prompt,
-                        "conversation_language": "English",
+                        "conversation_language": "None",
                     }
 
     def chat_params(self):
@@ -233,11 +233,11 @@ class Chat:
         else:
             # Set default chat parameters
             chat_params = {
-                "history_length": 3,
+                "history_length": 5,
                 "similarity_threshold": 0.5,
                 "max_tokens": 2400,
                 "system_prompt": "",
-                "conversation_language": "English",
+                "conversation_language": "None",
             }
 
         # System prompt
@@ -271,7 +271,7 @@ class Chat:
         # History length
         history_length = self.st.sidebar.number_input(
             key="history_length",
-            label="Number of Messages in History",
+            label="Number of Q&As to consider",
             value=chat_params["history_length"],
         )
 

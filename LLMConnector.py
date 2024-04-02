@@ -197,8 +197,8 @@ class LLMConnector:
             for msg in messages_history if msg.get("role", "") in ["user", "assistant"]
         ]
 
-        # Deque to store the filtered message history
-        filtered_history = deque(maxlen=max_history_length)
+        # Deque to store the filtered message history 
+        filtered_history = deque(maxlen=max_history_length*2)
 
         # Select the appropriate SpaCy NLP model based on the language
         self.nlp = self.nlp_en if language.lower() == "english" else self.nlp_fr
