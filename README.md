@@ -20,6 +20,10 @@ GPTAggregator is a Python-based application that provides a unified interface fo
 
 4. **Automatic Prompt Optimization**: Utilize advanced prompt engineering techniques to improve model responses and user interaction over time.
 
+5. **Image Input Support**: Upload a picture and ask a question to GPT-4 TURBO.
+
+6. **Retrieval Augmented Generation(RAG) using LlamaIndex**: Use LlamaIndex to retrieve relevant documents for a given query and generate responses based on the retrieved documents. This feature is available for all models.
+
 ## Installation
 
 1. Clone the repository:
