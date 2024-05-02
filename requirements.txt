@@ -139,7 +139,6 @@ striprtf==0.0.26
 sympy==1.12
 tenacity==8.2.3
 thinc==8.2.3
-thinc-apple-ops==0.1.4
 threadpoolctl==3.4.0
 tiktoken==0.6.0
 tokenizers==0.19.1
