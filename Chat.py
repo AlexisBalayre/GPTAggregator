@@ -46,6 +46,8 @@ class Chat:
         self.new_conversation()
         # Set chat parameters
         self.params = self.chat_params()  # Chat parameters
+        # Set cache for file uploads
+        self.st.session_state.file_cache = {}
 
     def run(self):
         """
@@ -204,6 +206,8 @@ class Chat:
                 "max_tokens": 2400,
                 "system_prompt": "",
                 "conversation_language": "None",
+                "render_mode": "Rendered",
+                "file": None,
             }
 
             # Load the system prompt from the conversation history
@@ -216,6 +220,7 @@ class Chat:
                         "max_tokens": 2400,
                         "system_prompt": system_prompt,
                         "conversation_language": "None",
+                        "file": None,
                     }
 
     def chat_params(self):
@@ -238,7 +243,22 @@ class Chat:
                 "max_tokens": 2400,
                 "system_prompt": "",
                 "conversation_language": "None",
+                "render_mode": "Rendered",  # Default rendering mode
+                "file": None,
             }
+
+        # Button to choose the rendering mode
+        render_mode = self.st.sidebar.radio(
+            "Rendering Mode",
+            ["Rendered", "Raw"],
+        )
+
+        uploaded_file = self.st.sidebar.file_uploader("Upload Document")
+        if uploaded_file and uploaded_file.type == "application/pdf":
+            llm_provider, llm_name = self.selected_model
+            self.llmConnector.set_query_engine(
+                model_name=llm_name, provider=llm_provider, uploaded_file=uploaded_file
+            )
 
         # System prompt
         system_prompt = self.st.sidebar.text_area(
@@ -287,6 +307,8 @@ class Chat:
             "max_tokens": max_tokens,
             "system_prompt": system_prompt,
             "conversation_language": conversation_language,
+            "render_mode": render_mode,
+            "file": uploaded_file,
         }
 
     def chat(self, prompt):
@@ -320,17 +342,30 @@ class Chat:
                 # Display user's messages with a specific format
                 with self.st.chat_message("user"):
                     question = message["content"]
-                    self.st.markdown(f"{question}", unsafe_allow_html=True)
+                    # Check the rendering mode to display the message - Rendered or Raw (markdown)
+                    if self.params["render_mode"] == "Raw":
+                        self.st.code(question, language="markdown")
+                    else:
+                        self.st.markdown(f"{question}", unsafe_allow_html=True)
             elif role == "assistant":
                 # Display assistant's responses with a different format
                 with self.st.chat_message("assistant"):
-                    self.st.markdown(message["content"], unsafe_allow_html=True)
+                    response = message["content"]
+                    # Check the rendering mode to display the message - Rendered or Raw (markdown)
+                    if self.params["render_mode"] == "Raw":
+                        self.st.code(response, language="markdown")
+                    else:
+                        self.st.markdown(response, unsafe_allow_html=True)
 
         # Check if there is a new prompt from the user
         if prompt:
             # Display the prompt in the chat UI
             with self.st.chat_message("user"):
-                self.st.write(prompt)
+                # Check the rendering mode to display the message - Rendered or Raw (markdown)
+                if self.params["render_mode"] == "Raw":
+                    self.st.code(prompt, language="markdown")
+                else:
+                    self.st.markdown(f"{prompt}", unsafe_allow_html=True)
 
             # Prepare the messages for the language model by collecting all messages from the chat history
             messages = [
@@ -342,6 +377,12 @@ class Chat:
             with self.st.chat_message("assistant"):
                 chat_box = self.st.empty()  # Placeholder for the model's response
                 params = self.params
+
+                # Check if the user uploaded a file
+                file_type = ""
+                if params["file"]:
+                    file_type = params["file"].type
+
                 # Use the LLM connector to stream the model's response based on the chat history``
                 response_message = chat_box.write_stream(
                     self.llmConnector.llm_stream(
@@ -354,11 +395,13 @@ class Chat:
                         similarity_threshold=params["similarity_threshold"],
                         max_tokens=params["max_tokens"],
                         system_prompt=params["system_prompt"],
+                        file_content=params["file"],
+                        file_type=file_type,
                     )
                 )
 
             # Modify or add a system prompt to chat history
-            if params["system_prompt"]:
+            if self.params["system_prompt"]:
                 # Check if a system prompt is already present in the chat history
                 system_prompt_exists = any(
                     message["role"] == "system" for message in messages

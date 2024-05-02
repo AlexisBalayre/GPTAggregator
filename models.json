@@ -1,5 +1,41 @@
 [
   {
+    "provider": "groq",
+    "modelName": "llama3-70b-8192",
+    "name": "LLaMA3 70b by Groq",
+    "inputPrice": 0,
+    "outputPrice": 0,
+    "contextWindow": 8192,
+    "trainingData": "Unknown"
+  },
+  {
+    "provider": "groq",
+    "modelName": "llama3-8b-8192",
+    "name": "LLaMA3 8b by Groq",
+    "inputPrice": 0,
+    "outputPrice": 0,
+    "contextWindow": 8192,
+    "trainingData": "Unknown"
+  },
+  {
+    "provider": "groq",
+    "modelName": "mixtral-8x7b-32768",
+    "name": "Mixtral 8x7b by Groq",
+    "inputPrice": 0,
+    "outputPrice": 0,
+    "contextWindow": 32768,
+    "trainingData": "Unknown"
+  },
+  {
+    "provider": "groq",
+    "modelName": "gemma-7b-it",
+    "name": "Gemma 7b by Groq",
+    "inputPrice": 0,
+    "outputPrice": 0,
+    "contextWindow": 8192,
+    "trainingData": "Unknown"
+  },
+  {
     "provider": "anthropic",
     "modelName": "claude-3-opus-20240229",
     "name": "Claude 3 Opus",
@@ -73,7 +109,7 @@
   },
   {
     "provider": "openai",
-    "modelName": "gpt-4-turbo-preview",
+    "modelName": "gpt-4-turbo",
     "name": "GPT-4 Turbo",
     "inputPrice": 10,
     "outputPrice": 30,
