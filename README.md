@@ -12,6 +12,7 @@ GPTAggregator is a Python-based application that provides a unified interface fo
    - [OpenAI](https://platform.openai.com/docs/models/overview)
    - [Anthropic](https://docs.anthropic.com/claude/docs/intro-to-claude)
    - [MistralAI](https://docs.mistral.ai/platform/endpoints/)
+   - [Groq](https://console.groq.com/)
 
 2. **Seamless Model Switching**: Switch between different LLMs mid-conversation, leveraging the strengths of each to enhance the chat experience.
 
