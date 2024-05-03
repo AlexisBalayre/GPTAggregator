@@ -205,7 +205,12 @@ class LLMConnector:
         Returns:
             list: A list of model names available through the Ollama client.
         """
-        return self.ollama_client.list()["models"]
+        try:
+            local_models = self.ollama_client.list()["models"]
+            return local_models
+        except Exception as e:
+            print(f"Failed to fetch local models: {e}")
+            return []
 
     def get_online_models(self):
         """
