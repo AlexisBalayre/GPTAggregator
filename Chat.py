@@ -101,7 +101,7 @@ class Chat:
         else:
             # Compile lists of available models
             local_models_names = [
-                model["name"] for model in self.LOCAL_MODELS
+                model["name"] for model in self.LOCAL_MODELS if self.LOCAL_MODELS != []
             ]  # Local models
             online_models_names = [
                 model["name"] for model in self.ONLINE_MODELS
