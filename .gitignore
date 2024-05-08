@@ -2,4 +2,5 @@
 venv
 .DS_Store
 llm_conversations
+query_engines
 __pycache__

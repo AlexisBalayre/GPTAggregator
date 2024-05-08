@@ -27,6 +27,8 @@ class Chat:
         self.OUTPUT_DIR = output_dir  # Directory for saving conversations
         self.health_check_enabled = health_check_enabled  # Enable health check
         self.__configure_chat()  # Configure the chat UI
+        self.st.session_state.file_cache = {}
+
 
     def __configure_chat(self):
         """
@@ -46,9 +48,10 @@ class Chat:
         self.new_conversation()
         # Set chat parameters
         self.params = self.chat_params()  # Chat parameters
-        # Set cache for file uploads
-        self.st.session_state.file_cache = {}
-
+        # Init the session state for query engine
+        if 'file_cache' not in self.st.session_state:
+            self.st.session_state['file_cache'] = {}
+        
     def run(self):
         """
         Runs the chat interface allowing for user input and displays responses from the selected model.
@@ -253,8 +256,8 @@ class Chat:
             ["Rendered", "Raw"],
         )
 
-        uploaded_file = self.st.sidebar.file_uploader("Upload Document")
-        if uploaded_file and uploaded_file.type == "application/pdf":
+        uploaded_file = self.st.sidebar.file_uploader("Upload Document") # File uploader
+        if uploaded_file:
             llm_provider, llm_name = self.selected_model
             self.llmConnector.set_query_engine(
                 model_name=llm_name, provider=llm_provider, uploaded_file=uploaded_file

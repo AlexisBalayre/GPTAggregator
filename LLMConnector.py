@@ -3,6 +3,7 @@ import json
 import base64
 from collections import deque
 import tempfile
+import pickle
 
 import ollama
 from openai import OpenAI
@@ -224,90 +225,86 @@ class LLMConnector:
     def set_query_engine(self, uploaded_file, provider, model_name):
         """
         Sets up the query engine for processing user queries based on the uploaded file and the specified LLM model.
-
-        Args:
-            uploaded_file (UploadedFile): The uploaded file object containing the document data.
-            provider (str): The name of the LLM provider (ollama, openai, anthropic, mistralai).
-            model_name (str): The name or identifier of the model to use for generating responses.
         """
-        # Load the appropriate LLM model based on the provider
-        if provider == "ollama":
-            llm = OllamaLLamaIndex(model=model_name)  # Local LLM
-        if provider == "mistralai":
-            llm = MistralAILLamaIndex(
-                api_key=os.getenv("MISTRALAI_API_KEY"), model=model_name
-            )  # MistralAI LLM
-        if provider == "anthropic":
-            llm = AnthropicLLamaIndex(model=model_name)  # Anthropic LLM
-        if provider == "groq":
-            llm = GroqLLamaIndex(
-                api_key=os.getenv("GROQ_API_KEY"), model=model_name
-            )  # Groq LLM
-        if provider == "openai":
-            llm = OpenAILLamaIndex(model=model_name)  # OpenAI LLM
+        # Map provider names to corresponding LLM index classes
+        provider_to_llm = {
+            "ollama": OllamaLLamaIndex,
+            "openai": OpenAILLamaIndex,
+            "anthropic": AnthropicLLamaIndex,
+            "groq": GroqLLamaIndex,
+            "mistralai": MistralAILLamaIndex,
+        }
 
-        # Process the uploaded file and create the query engine
+        # Check if the provider is supported
+        if provider not in provider_to_llm:
+            self.st.error(f"Unsupported LLM provider: {provider}")
+            return
+
+        # Initialize the appropriate LLM Index
+        if provider == "mistralai" or provider == "groq":
+            api_key_env_var = f"{provider.upper()}_API_KEY"
+            api_key = os.getenv(api_key_env_var)
+            if not api_key:
+                self.st.warning(
+                    f"No API key found for {provider}. Please set the {api_key_env_var} environment variable."
+                )
+                return
+            llm = provider_to_llm[provider](api_key=api_key, model=model_name)
+        else:
+            llm = provider_to_llm[provider](model=model_name)
+
+        # Set up temporary storage for uploaded file
         try:
-            # Create a temporary directory to store the uploaded file
             with tempfile.TemporaryDirectory() as temp_dir:
-                # Save the uploaded file to the temporary directory
                 file_path = os.path.join(temp_dir, uploaded_file.name)
                 with open(file_path, "wb") as f:
-                    f.write(uploaded_file.getvalue())
-                file_key = uploaded_file.name + "-" + model_name
-                self.st.info("Indexing your document...")
+                    f.write(uploaded_file.getbuffer())
+                # Check if already indexed
+                file_key = f"{provider}_{model_name}_{uploaded_file.name}"
+                query_engine_path = os.path.join("query_engines", f"{file_key}.pkl")
+                if not os.path.exists(query_engine_path):
+                    self.st.info("Indexing your document...")
 
-                # Check if the file has already been indexed
-                if file_key not in self.st.session_state.get("file_cache", {}):
-                    # Load the data from the uploaded file
-                    if os.path.exists(temp_dir):
-                        loader = SimpleDirectoryReader(
-                            input_dir=temp_dir, required_exts=[".pdf"], recursive=True
-                        )
-                    else:
-                        self.st.error(
-                            "Could not find the file you uploaded, please check again..."
-                        )
-                        self.st.stop()
-
-                    # Load the data from the uploaded file
+                    loader = SimpleDirectoryReader(temp_dir, recursive=True)
                     docs = loader.load_data()
 
-                    # Setup LLM & embedding model
+                    # Set up embedding model and index
                     embed_model = HuggingFaceEmbedding(
-                        model_name="BAAI/bge-large-en-v1.5", trust_remote_code=True
+                        model_name="Alibaba-NLP/gte-large-en-v1.5",
+                        trust_remote_code=True,
                     )
-                    # Creating an index over loaded data
-                    Settings.embed_model = embed_model
-                    index = VectorStoreIndex.from_documents(docs, show_progress=True)
 
-                    # Create the query engine, where we use a cohere reranker on the fetched nodes
-                    Settings.llm = llm  # Set the LLM model
+                    index = VectorStoreIndex.from_documents(docs, show_progress=True)
+                    Settings.llm = llm
                     query_engine = index.as_query_engine(streaming=True)
 
-                    # Customise prompt template
-                    qa_prompt_tmpl_str = (
+                    prompt_template_str = (
                         "Context information is below.\n"
                         "---------------------\n"
                         "{context_str}\n"
                         "---------------------\n"
-                        "Given the context information above I want you to think step by step to answer the query in a crisp manner, incase case you don't know the answer say 'I don't know!'.\n"
+                        "Given the context information above, I want you to think step by step to answer the query in a crisp manner; if you don't know the answer, say 'I don't know!'.\n"
                         "Query: {query_str}\n"
                         "Answer: "
                     )
-                    qa_prompt_tmpl = PromptTemplate(qa_prompt_tmpl_str)
-                    # Update the query engine with the new prompt template
+                    prompt_template = PromptTemplate(prompt_template_str)
                     query_engine.update_prompts(
-                        {"response_synthesizer:text_qa_template": qa_prompt_tmpl}
+                        {"response_synthesizer:text_qa_template": prompt_template}
                     )
-                    self.st.success("Document successfully indexed!")
 
-                    # Cache the query engine for future use
-                    self.st.session_state.file_cache[file_key] = query_engine
-                    self.query_engine = query_engine
+                    # Serialize the query engine using pickle
+                    with open(
+                        os.path.join("query_engines", f"{file_key}.pkl"), "wb"
+                    ) as f:
+                        pickle.dump(query_engine, f)
+                    self.st.success("Document indexed successfully.")
                 else:
-                    # Retrieve the cached query engine
-                    self.query_engine = self.st.session_state.file_cache[file_key]
+                    with open(
+                        os.path.join("query_engines", f"{file_key}.pkl"), "rb"
+                    ) as f:
+                        query_engine = pickle.load(f)
+                    self.st.success("Query engine loaded successfully.")
+                self.query_engine = query_engine
 
         except Exception as e:
             self.st.error(f"Failed to set up query engine: {e}")
@@ -419,7 +416,9 @@ class LLMConnector:
             if provider == "groq":
                 # Add the user and system prompts to the filtered history
                 if system_prompt:
-                    filtered_history.append({"role": "system", "content": system_prompt})
+                    filtered_history.append(
+                        {"role": "system", "content": system_prompt}
+                    )
                 filtered_history.append({"role": "user", "content": user_prompt})
                 stream = self.groq_client.chat.completions.create(
                     model=model_name,
@@ -436,9 +435,13 @@ class LLMConnector:
             if provider == "ollama":
                 # Add the user and system prompts to the filtered history
                 if system_prompt:
-                    filtered_history.append({"role": "system", "content": system_prompt})
+                    filtered_history.append(
+                        {"role": "system", "content": system_prompt}
+                    )
                 filtered_history.append({"role": "user", "content": user_prompt})
-                stream = self.ollama_client.chat(model_name, filtered_history, stream=True)
+                stream = self.ollama_client.chat(
+                    model_name, filtered_history, stream=True
+                )
                 for chunk in stream:
                     yield chunk["message"]["content"]
 
@@ -446,12 +449,16 @@ class LLMConnector:
             elif provider == "openai":
                 # Add the user and system prompts to the filtered history
                 if system_prompt:
-                    filtered_history.append({"role": "system", "content": system_prompt})
+                    filtered_history.append(
+                        {"role": "system", "content": system_prompt}
+                    )
                 filtered_history.append({"role": "user", "content": user_prompt})
 
                 # Check if a file was uploaded and process the image data
                 if file_type and file_content:
-                    base64_image = base64.b64encode(file_content.getvalue()).decode("utf-8")
+                    base64_image = base64.b64encode(file_content.getvalue()).decode(
+                        "utf-8"
+                    )
                     image_mime_type = file_type.split("/")[0]
                     # Check if the uploaded file is an image and modify the history accordingly
                     if image_mime_type == "image":
@@ -497,7 +504,9 @@ class LLMConnector:
             elif provider == "mistralai":
                 # Add the user and system prompts to the filtered history
                 if system_prompt:
-                    filtered_history.append({"role": "system", "content": system_prompt})
+                    filtered_history.append(
+                        {"role": "system", "content": system_prompt}
+                    )
                 filtered_history.append({"role": "user", "content": user_prompt})
                 stream = self.mistralai_client.chat_stream(
                     model=model_name,
