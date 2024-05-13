@@ -13,10 +13,9 @@ from groq import Groq
 
 from llama_index.embeddings.huggingface import HuggingFaceEmbedding
 from llama_index.core import (
-    VectorStoreIndex,
-    ServiceContext,
-    SimpleDirectoryReader,
     Settings,
+    VectorStoreIndex,
+    SimpleDirectoryReader,
     PromptTemplate,
 )
 from llama_index.llms.ollama import Ollama as OllamaLLamaIndex
@@ -225,6 +224,11 @@ class LLMConnector:
     def set_query_engine(self, uploaded_file, provider, model_name):
         """
         Sets up the query engine for processing user queries based on the uploaded file and the specified LLM model.
+
+        Args:
+            uploaded_file (File): The uploaded file containing the document to index.
+            provider (str): The name of the LLM provider (ollama, openai, anthropic, mistralai).
+            model_name (str): The name or identifier of the model to use for generating responses.
         """
         # Map provider names to corresponding LLM index classes
         provider_to_llm = {
@@ -241,7 +245,7 @@ class LLMConnector:
             return
 
         # Initialize the appropriate LLM Index
-        if provider == "mistralai" or provider == "groq":
+        if provider == "groq" or provider == "mistralai":
             api_key_env_var = f"{provider.upper()}_API_KEY"
             api_key = os.getenv(api_key_env_var)
             if not api_key:
@@ -252,62 +256,61 @@ class LLMConnector:
             llm = provider_to_llm[provider](api_key=api_key, model=model_name)
         else:
             llm = provider_to_llm[provider](model=model_name)
+        Settings.llm = llm  # Set the LLM model in the settings
 
-        # Set up temporary storage for uploaded file
-        try:
-            with tempfile.TemporaryDirectory() as temp_dir:
-                file_path = os.path.join(temp_dir, uploaded_file.name)
-                with open(file_path, "wb") as f:
-                    f.write(uploaded_file.getbuffer())
-                # Check if already indexed
-                file_key = f"{provider}_{model_name}_{uploaded_file.name}"
-                query_engine_path = os.path.join("query_engines", f"{file_key}.pkl")
-                if not os.path.exists(query_engine_path):
-                    self.st.info("Indexing your document...")
+        # Set up the embedding model and query engine
+        embed_model = HuggingFaceEmbedding(
+            model_name="BAAI/bge-large-en-v1.5",
+            trust_remote_code=True,
+        )
+        Settings.embedding_model = (
+            embed_model  # Set the embedding model in the settings
+        )
 
+        # Index or load the uploaded document for querying
+        vectorStorePath = os.path.join("vectorStore", f"{uploaded_file.name}.pkl")
+        # Check if the vector store exists
+        if not os.path.exists(vectorStorePath):
+            self.st.info("Indexing your document...")
+            try:
+                with tempfile.TemporaryDirectory() as temp_dir:
+                    file_path = os.path.join(temp_dir, uploaded_file.name)
+                    with open(file_path, "wb") as f:
+                        f.write(uploaded_file.getbuffer())
+                    # Loads the document
                     loader = SimpleDirectoryReader(temp_dir, recursive=True)
                     docs = loader.load_data()
 
-                    # Set up embedding model and index
-                    embed_model = HuggingFaceEmbedding(
-                        model_name="Alibaba-NLP/gte-large-en-v1.5",
-                        trust_remote_code=True,
-                    )
+                    # Create a vector store index from the documents
+                    index = VectorStoreIndex.from_documents(docs)
 
-                    index = VectorStoreIndex.from_documents(docs, show_progress=True)
-                    Settings.llm = llm
-                    query_engine = index.as_query_engine(streaming=True)
-
-                    prompt_template_str = (
-                        "Context information is below.\n"
-                        "---------------------\n"
-                        "{context_str}\n"
-                        "---------------------\n"
-                        "Given the context information above, I want you to think step by step to answer the query in a crisp manner; if you don't know the answer, say 'I don't know!'.\n"
-                        "Query: {query_str}\n"
-                        "Answer: "
-                    )
-                    prompt_template = PromptTemplate(prompt_template_str)
-                    query_engine.update_prompts(
-                        {"response_synthesizer:text_qa_template": prompt_template}
-                    )
-
-                    # Serialize the query engine using pickle
-                    with open(
-                        os.path.join("query_engines", f"{file_key}.pkl"), "wb"
-                    ) as f:
-                        pickle.dump(query_engine, f)
+                    # Serialize the vector store using pickle
+                    with open(vectorStorePath, "wb") as f:
+                        pickle.dump(index, f)
                     self.st.success("Document indexed successfully.")
-                else:
-                    with open(
-                        os.path.join("query_engines", f"{file_key}.pkl"), "rb"
-                    ) as f:
-                        query_engine = pickle.load(f)
-                    self.st.success("Query engine loaded successfully.")
-                self.query_engine = query_engine
+            except Exception as e:
+                self.st.error(f"Failed to index document: {e}")
+                return
+        else:
+            with open(vectorStorePath, "rb") as f:
+                index = pickle.load(f)
+            self.st.success("Vector store loaded successfully.")
 
-        except Exception as e:
-            self.st.error(f"Failed to set up query engine: {e}")
+        # Set up the query engine 
+        self.query_engine = index.as_query_engine(streaming=True)
+        prompt_template_str = (
+            "Context information is below.\n"
+            "---------------------\n"
+            "{context_str}\n"
+            "---------------------\n"
+            "Given the context information above, I want you to think step by step to answer the query in a crisp manner; if you don't know the answer, say 'I don't know!'.\n"
+            "Query: {query_str}\n"
+            "Answer: "
+        )
+        prompt_template = PromptTemplate(prompt_template_str) # Create a prompt template
+        self.query_engine.update_prompts(
+            {"response_synthesizer:text_qa_template": prompt_template} # Update the prompt template
+        )
 
     def filter_messages(
         self,
@@ -408,10 +411,11 @@ class LLMConnector:
         # Verify if a query engine is set up
         if self.query_engine:
             # Get the response from the query engine
-            streaming_response = self.query_engine.query(user_prompt)
+            streaming_response = self.query_engine.query(user_prompt) # Query the query engine
             for chunk in streaming_response.response_gen:
                 yield chunk
         else:
+            print("No query engine set up.")
             # Groq API
             if provider == "groq":
                 # Add the user and system prompts to the filtered history
