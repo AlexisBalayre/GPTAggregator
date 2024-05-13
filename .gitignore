@@ -1,5 +1,6 @@
 .env
 venv
+vectorStore
 .DS_Store
 llm_conversations
 query_engines
