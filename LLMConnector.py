@@ -230,6 +230,10 @@ class LLMConnector:
             provider (str): The name of the LLM provider (ollama, openai, anthropic, mistralai).
             model_name (str): The name or identifier of the model to use for generating responses.
         """
+        # Checks if the uploaded file is a pdf 
+        if (not uploaded_file.name.endswith(".pdf")):
+            return
+
         # Map provider names to corresponding LLM index classes
         provider_to_llm = {
             "ollama": OllamaLLamaIndex,

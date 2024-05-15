@@ -109,6 +109,15 @@
   },
   {
     "provider": "openai",
+    "modelName": "gpt-4o",
+    "name": "GPT-4o",
+    "inputPrice": 5,
+    "outputPrice": 15,
+    "contextWindow": 128000,
+    "trainingData": "Oct 2023"
+  },
+  {
+    "provider": "openai",
     "modelName": "gpt-4-turbo",
     "name": "GPT-4 Turbo",
     "inputPrice": 10,
